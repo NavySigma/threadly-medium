@@ -14,11 +14,14 @@ class UserController extends Controller
     // Lihat profile sendiri
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load([
-            'roles:id,name',
-        ]);
+        $user = $request->user()->load(['roles:id,name']);
 
-        return response()->json(['data' => $user]);
+        return response()->json([
+            'data' => array_merge($user->toArray(), [
+                'level_title'       => $user->level_title,
+                'next_level_points' => $user->next_level_points,
+            ])
+        ]);
     }
 
     // Lihat profile orang lain (public)

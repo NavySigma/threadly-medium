@@ -134,4 +134,34 @@ class User extends Authenticatable
     {
         return $this->is_banned;
     }
+
+    public function getLevelTitleAttribute(): string
+    {
+        return match($this->level) {
+            1  => 'Newbie',
+            2  => 'Member',
+            3  => 'Contributor',
+            4  => 'Warrior',
+            5  => 'Elite',
+            6  => 'Master',
+            7  => 'Grandmaster',
+            8  => 'Epic',
+            9  => 'Legend',
+            10 => 'Mythic',
+            default => 'Newbie',
+        };
+    }
+
+    public function getNextLevelPointsAttribute(): int
+    {
+        $levels = [
+            1 => 0, 2 => 15, 3 => 20, 4 => 30,
+            5 => 40, 6 => 50, 7 => 60,
+            8 => 70, 9 => 80, 10 => 90,
+        ];
+
+        $nextLevel = $this->level + 1;
+
+        return $levels[$nextLevel] ?? $levels[10];
+    }
 }
