@@ -6,11 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use App\Models\Like;
 use App\Models\Post;
+use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class LikeController extends Controller
 {
+    public function __construct(private NotificationService $notificationService) {}
+
     public function like(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -47,6 +51,16 @@ class LikeController extends Controller
             'target_id'   => $validated['target_id'],
             'target_type' => $validated['target_type'],
         ]);
+
+        $postOwner = User::findOrFail($post->user_id);
+
+        $this->notificationService->send(
+            recipient    : $postOwner,
+            actor        : $request->user(),
+            type         : 'like',
+            referenceId  : $post->id,
+            referenceType: 'post',
+        );
 
         return response()->json(['message' => 'Berhasil di-bookmark.'], 201);
     }

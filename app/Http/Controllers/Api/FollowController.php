@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class FollowController extends Controller
 {
+    public function __construct(private NotificationService $notificationService) {}
+
     public function follow(Request $request, User $user): JsonResponse
     {
         $me = $request->user();
@@ -25,6 +28,14 @@ class FollowController extends Controller
         }
 
         $me->following()->attach($user->id, ['created_at' => now()]);
+
+        $this->notificationService->send(
+            recipient    : $user,
+            actor        : $request->user(),
+            type         : 'follow',
+            referenceId  : $request->user()->id,
+            referenceType: 'user',
+        );
 
         return response()->json(['message' => 'Berhasil mengikuti.'], 201);
     }

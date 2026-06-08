@@ -7,13 +7,17 @@ use App\Models\Comment;
 use App\Models\CommentEditHistory;
 use App\Models\Post;
 use App\Models\User;
+use App\Services\NotificationService;
 use App\Services\PointService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class CommentController extends Controller
 {
-    public function __construct(private PointService $pointService) {}
+    public function __construct(
+        private PointService $pointService,
+        private NotificationService $notificationService,
+    ) {}
     // List komentar dari sebuah post (top-level only, reply di-load nested)
     public function index(Post $post): JsonResponse
     {
@@ -74,6 +78,40 @@ class CommentController extends Controller
             'parent_id' => $validated['parent_id'] ?? null,
             'body'      => $validated['body'],
         ]);
+
+        $postOwner = User::findOrFail($post->user_id);
+
+        // Notif ke owner post kalau ada yang comment
+        if (empty($validated['parent_id'])) {
+            $this->notificationService->send(
+                recipient    : $postOwner,
+                actor        : $request->user(),
+                type         : 'comment',
+                referenceId  : $comment->id,
+                referenceType: 'comment',
+            );
+        } else {
+            // Notif ke owner post kalau ada reply di postnya
+            $this->notificationService->send(
+                recipient    : $postOwner,
+                actor        : $request->user(),
+                type         : 'reply_on_post',
+                referenceId  : $comment->id,
+                referenceType: 'comment',
+            );
+
+            // Notif ke owner comment yang di-reply
+            $parentComment = Comment::findOrFail($validated['parent_id']);
+            $commentOwner  = User::findOrFail($parentComment->user_id);
+
+            $this->notificationService->send(
+                recipient    : $commentOwner,
+                actor        : $request->user(),
+                type         : 'reply',
+                referenceId  : $comment->id,
+                referenceType: 'comment',
+            );
+        }
 
         $comment->load('user:id,username,avatar_url');
 
@@ -179,12 +217,21 @@ class CommentController extends Controller
         ]);
 
         $answerer = User::findOrFail($comment->user_id);
+
         $this->pointService->adjust(
             $answerer,
             10,
             'answer_accepted',
             $comment->id,
             'Jawaban kamu diterima'
+        );
+
+        $this->notificationService->send(
+            recipient    : $answerer,
+            actor        : $request->user(),
+            type         : 'answer_accepted',
+            referenceId  : $comment->id,
+            referenceType: 'comment',
         );
 
         return response()->json(['message' => 'Jawaban berhasil diterima.']);
