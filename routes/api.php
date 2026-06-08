@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\FollowController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\PointsLogController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\UserController;
@@ -69,6 +70,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/likes', [LikeController::class, 'unlike']);
     Route::get('/me/bookmarks/posts', [LikeController::class, 'likedPosts']);
     Route::get('/me/bookmarks/comments', [LikeController::class, 'likedComments']);
+
+    // Semua user bisa report
+    Route::post('/reports', [ReportController::class, 'store']);
+    // Mod & Admin only
+    Route::get('/reports', [ReportController::class, 'index']);
+    Route::get('/reports/{report}', [ReportController::class, 'show']);
+    Route::patch('/reports/{report}/resolve', [ReportController::class, 'resolve']);
 
     // CATEGORIES
     Route::post('/categories', [CategoryController::class, 'store']);
