@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\FollowController;
 use App\Http\Controllers\Api\LikeController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PointsLogController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ReportController;
@@ -87,6 +88,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tags', [TagController::class, 'store']);
     Route::put('/tags/{tag}', [TagController::class, 'update']);
     Route::delete('/tags/{tag}', [TagController::class, 'destroy']);
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'read']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'readAll']);
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
+    Route::delete('/notifications/read', [NotificationController::class, 'destroyRead']);
 
     Route::post('/logout', [AuthController::class, 'logout']);
 });
