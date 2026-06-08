@@ -84,6 +84,14 @@ class PostController extends Controller
             return response()->json(['message' => 'Post sudah ditutup, tidak bisa diedit.'], 422);
         }
 
+        $editCount = PostEditHistory::where('post_id', $post->id)
+                ->where('edited_by', $user->id)
+                ->count();
+
+            if ($editCount >= 2) {
+                return response()->json(['message' => 'Post hanya bisa diedit maksimal 2 kali.'], 422);
+            }
+
         $validated = $request->validate([
             'category_id' => 'sometimes|uuid|exists:categories,id',
             'title'       => 'sometimes|string|min:10|max:300',

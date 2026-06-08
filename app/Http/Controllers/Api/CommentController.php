@@ -131,6 +131,14 @@ class CommentController extends Controller
             return response()->json(['message' => 'Post sudah ditutup.'], 422);
         }
 
+        $editCount = CommentEditHistory::where('comment_id', $comment->id)
+                ->where('edited_by', $user->id)
+                ->count();
+
+        if ($editCount >= 2) {
+            return response()->json(['message' => 'Komentar hanya bisa diedit maksimal 2 kali.'], 422);
+        }
+
         $validated = $request->validate([
             'body' => 'required|string|min:5',
         ]);
