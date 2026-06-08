@@ -7,13 +7,17 @@ use App\Models\Comment;
 use App\Models\Post;
 use App\Models\Report;
 use App\Models\User;
+use App\Services\NotificationService;
 use App\Services\PointService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    public function __construct(private PointService $pointService) {}
+    public function __construct(
+        private PointService $pointService,
+        private NotificationService $notificationService,
+    ) {}
 
     // User bikin report — hanya post & comment
     public function store(Request $request): JsonResponse
@@ -151,6 +155,24 @@ class ReportController extends Controller
                     $report->target_id,
                     'Konten kamu dihapus karena melanggar aturan'
                 );
+
+                $reporter = User::findOrFail($report->reporter_id);
+                    $this->notificationService->send(
+                        recipient    : $reporter,
+                        actor        : null,
+                        type         : 'report_confirmed',
+                        referenceId  : $report->id,
+                        referenceType: 'report',
+                    );
+
+                    // Notif ke owner konten — kena sanksi -10 poin
+                    $this->notificationService->send(
+                        recipient    : $owner,
+                        actor        : null,
+                        type         : 'report_penalized',
+                        referenceId  : $report->id,
+                        referenceType: 'report',
+                    );
             }
         }
 
