@@ -1,5 +1,4 @@
 <?php
-// app/Services/PointService.php
 
 namespace App\Services;
 
@@ -8,6 +7,8 @@ use App\Models\User;
 
 class PointService
 {
+    public function __construct(private NotificationService $notificationService) {}
+
     private const LEVELS = [
         1  => 0,
         2  => 15,
@@ -61,6 +62,13 @@ class PointService
 
         if ($user->level !== $level) {
             $user->update(['level' => $level]);
+            $this->notificationService->send(
+                        recipient    : $user,
+                        actor        : null,
+                        type         : 'level_up',
+                        referenceId  : null,
+                        referenceType: null,
+                    );
         }
     }
 
