@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
+use App\Models\CommentEditHistory;
 use App\Models\Post;
 use App\Models\User;
 use App\Services\PointService;
@@ -82,8 +83,9 @@ class CommentController extends Controller
     // Edit komentar — owner only
     public function update(Request $request, Comment $comment): JsonResponse
     {
-        // Hanya owner comment yang bisa edit, mod/admin tidak bisa
-        if ($request->user()->id !== $comment->user_id) {
+        $user = $request->user();
+
+        if ($user->id !== $comment->user_id) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -95,9 +97,29 @@ class CommentController extends Controller
             'body' => 'required|string|min:5',
         ]);
 
+        // Simpan history sebelum diupdate
+        CommentEditHistory::create([
+            'comment_id'  => $comment->id,
+            'edited_by'   => $user->id,
+            'body_before' => $comment->body,
+            'body_after'  => $validated['body'],
+            'edited_at'   => now(),
+        ]);
+
         $comment->update($validated);
 
         return response()->json(['message' => 'Komentar berhasil diupdate.', 'data' => $comment]);
+    }
+
+    // Tambah method untuk lihat edit history comment (public)
+    public function history(Comment $comment): JsonResponse
+    {
+        $history = CommentEditHistory::where('comment_id', $comment->id)
+            ->with('editor:id,username,avatar_url')
+            ->latest('edited_at')
+            ->get();
+
+        return response()->json(['data' => $history]);
     }
 
     public function destroy(Request $request, Comment $comment): JsonResponse

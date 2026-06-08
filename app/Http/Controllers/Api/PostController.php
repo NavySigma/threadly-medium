@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Post;
+use App\Models\PostEditHistory;
 use App\Models\Tag;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,8 +74,9 @@ class PostController extends Controller
 
     public function update(Request $request, Post $post): JsonResponse
     {
-        // Hanya owner yang bisa edit, admin/mod tidak bisa
-        if ($request->user()->id !== $post->user_id) {
+        $user = $request->user();
+
+        if ($user->id !== $post->user_id) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -88,9 +90,22 @@ class PostController extends Controller
             'body'        => 'sometimes|string|min:20',
             'tags'        => 'nullable|array|max:5',
             'tags.*'      => 'uuid|exists:tags,id',
+            'reason'      => 'nullable|string|max:255',
         ]);
 
-        $post->update(collect($validated)->except('tags')->toArray());
+        // Simpan history sebelum diupdate
+        if (isset($validated['body'])) {
+            PostEditHistory::create([
+                'post_id'     => $post->id,
+                'edited_by'   => $user->id,
+                'body_before' => $post->body,
+                'body_after'  => $validated['body'],
+                'reason'      => $validated['reason'] ?? null,
+                'edited_at'   => now(),
+            ]);
+        }
+
+        $post->update(collect($validated)->except(['tags', 'reason'])->toArray());
 
         if ($request->has('tags')) {
             $oldTagIds = $post->tags()->pluck('tags.id')->toArray();
@@ -104,6 +119,17 @@ class PostController extends Controller
         $post->load(['user:id,username,avatar_url', 'category:id,name,slug', 'tags:id,name,slug,color']);
 
         return response()->json(['message' => 'Post berhasil diupdate.', 'data' => $post]);
+    }
+
+    // Tambah method untuk lihat edit history post (public)
+    public function history(Post $post): JsonResponse
+    {
+        $history = PostEditHistory::where('post_id', $post->id)
+            ->with('editor:id,username,avatar_url')
+            ->latest('edited_at')
+            ->get();
+
+        return response()->json(['data' => $history]);
     }
 
     public function destroy(Request $request, Post $post): JsonResponse
