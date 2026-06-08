@@ -13,12 +13,57 @@ class PostController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $posts = Post::with(['user:id,username,avatar_url', 'category:id,name,slug', 'tags:id,name,slug,color'])
+        $posts = Post::with([
+                'user:id,username,avatar_url',
+                'category:id,name,slug',
+                'tags:id,name,slug,color'
+            ])
             ->where('status', 'open')
-            ->when($request->search, fn($q) => $q->where('title', 'like', "%{$request->search}%")
-                ->orWhere('body', 'like', "%{$request->search}%"))
-            ->when($request->category_id, fn($q) => $q->where('category_id', $request->category_id))
-            ->latest()
+            // Filter pencarian
+            ->when($request->search, fn($q) =>
+                $q->where('title', 'like', "%{$request->search}%")
+                  ->orWhere('body', 'like', "%{$request->search}%")
+            )
+            // Filter by kategori
+            ->when($request->category_id, fn($q) =>
+                $q->where('category_id', $request->category_id)
+            )
+            // Filter by kategori slug
+            ->when($request->category_slug, fn($q) =>
+                $q->whereHas('category', fn($q) =>
+                    $q->where('slug', $request->category_slug)
+                )
+            )
+            // Filter by tag
+            ->when($request->tag_id, fn($q) =>
+                $q->whereHas('tags', fn($q) =>
+                    $q->where('tags.id', $request->tag_id)
+                )
+            )
+            // Filter by tag slug
+            ->when($request->tag_slug, fn($q) =>
+                $q->whereHas('tags', fn($q) =>
+                    $q->where('tags.slug', $request->tag_slug)
+                )
+            )
+            // Filter by user
+            ->when($request->user_id, fn($q) =>
+                $q->where('user_id', $request->user_id)
+            )
+            // Filter by status answered
+            ->when($request->is_answered !== null, fn($q) =>
+                $q->where('is_answered', filter_var($request->is_answered, FILTER_VALIDATE_BOOLEAN))
+            )
+            // Sorting
+            ->when($request->sort, function($q) use ($request) {
+                match($request->sort) {
+                    'latest'   => $q->latest(),
+                    'oldest'   => $q->oldest(),
+                    'popular'  => $q->orderByDesc('view_count'),
+                    'votes'    => $q->orderByDesc('vote_score'),
+                    default    => $q->latest(),
+                };
+            }, fn($q) => $q->latest())
             ->paginate(15);
 
         return response()->json($posts);
