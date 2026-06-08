@@ -7,31 +7,33 @@ use App\Models\Comment;
 use App\Models\Post;
 use App\Models\Report;
 use App\Models\User;
+use App\Services\PointService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    // User bikin report
+    public function __construct(private PointService $pointService) {}
+
+    // User bikin report — hanya post & comment
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'target_type' => 'required|in:post,comment,user',
+            'target_type' => 'required|in:post,comment',
             'target_id'   => 'required|uuid',
             'reason'      => 'required|string|in:spam,harassment,misinformation,inappropriate,other',
             'description' => 'nullable|string|max:500',
         ]);
 
         // Validasi target exists
-        match($validated['target_type']) {
+        $target = match($validated['target_type']) {
             'post'    => Post::findOrFail($validated['target_id']),
             'comment' => Comment::findOrFail($validated['target_id']),
-            'user'    => User::findOrFail($validated['target_id']),
         };
 
-        // Tidak bisa report diri sendiri
-        if ($validated['target_type'] === 'user' && $validated['target_id'] === $request->user()->id) {
-            return response()->json(['message' => 'Tidak bisa melaporkan diri sendiri.'], 422);
+        // Tidak bisa report konten sendiri
+        if ($target->user_id === $request->user()->id) {
+            return response()->json(['message' => 'Tidak bisa melaporkan konten sendiri.'], 422);
         }
 
         // Cek sudah pernah report target yang sama
@@ -93,11 +95,9 @@ class ReportController extends Controller
             'resolver:id,username,avatar_url',
         ]);
 
-        // Load target berdasarkan type
         $target = match($report->target_type) {
             'post'    => Post::with('user:id,username,avatar_url')->find($report->target_id),
             'comment' => Comment::with('user:id,username,avatar_url')->find($report->target_id),
-            'user'    => User::select('id', 'username', 'avatar_url', 'reputation_points')->find($report->target_id),
         };
 
         return response()->json([
@@ -106,20 +106,53 @@ class ReportController extends Controller
         ]);
     }
 
-    // Mod & Admin — update status report
+    // Mod & Admin — resolve report
     public function resolve(Request $request, Report $report): JsonResponse
     {
         if (!$request->user()->isModeratorOrAdmin()) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        if ($report->status === 'resolved' || $report->status === 'dismissed') {
+        if (in_array($report->status, ['resolved', 'dismissed'])) {
             return response()->json(['message' => 'Report sudah diproses.'], 422);
         }
 
         $validated = $request->validate([
-            'status' => 'required|in:reviewed,resolved,dismissed',
+            'status' => 'required|in:resolved,dismissed',
         ]);
+
+        // Jika disetujui → hapus konten + sanksi -10 poin
+        if ($validated['status'] === 'resolved') {
+            $target = match($report->target_type) {
+                'post'    => Post::find($report->target_id),
+                'comment' => Comment::find($report->target_id),
+            };
+
+            if ($target) {
+                $owner = User::findOrFail($target->user_id);
+
+                // Hapus konten
+                if ($report->target_type === 'post') {
+                    $target->update(['status' => 'deleted']);
+                } else {
+                    // Soft delete comment jika punya replies
+                    if ($target->replies()->exists()) {
+                        $target->update(['body' => '[komentar telah dihapus]']);
+                    } else {
+                        $target->delete();
+                    }
+                }
+
+                // Sanksi -10 poin ke pembuat konten
+                $this->pointService->adjust(
+                    $owner,
+                    -10,
+                    'content_reported',
+                    $report->target_id,
+                    'Konten kamu dihapus karena melanggar aturan'
+                );
+            }
+        }
 
         $report->update([
             'status'      => $validated['status'],
@@ -127,6 +160,10 @@ class ReportController extends Controller
             'resolved_at' => now(),
         ]);
 
-        return response()->json(['message' => 'Report berhasil diupdate.', 'data' => $report]);
+        $message = $validated['status'] === 'resolved'
+            ? 'Report disetujui, konten dihapus dan poin pembuat dikurangi.'
+            : 'Report ditolak.';
+
+        return response()->json(['message' => $message, 'data' => $report]);
     }
 }
