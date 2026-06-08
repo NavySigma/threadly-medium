@@ -57,4 +57,9 @@ class Post extends Model
     {
         return $this->status === 'open';
     }
+
+    public function editHistory(): HasMany
+    {
+        return $this->hasMany(PostEditHistory::class);
+    }
 }

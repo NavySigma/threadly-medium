@@ -45,4 +45,9 @@ class Comment extends Model
     {
         return $this->morphMany(Like::class, 'target');
     }
+
+    public function editHistory(): HasMany
+    {
+        return $this->hasMany(CommentEditHistory::class);
+    }
 }

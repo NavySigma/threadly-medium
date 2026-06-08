@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,6 +24,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'username', 'email', 'password_hash', 'avatar_url', 'bio', 'reputation_points',
+        'level', 'is_banned',
     ];
 
     /**
@@ -112,5 +112,26 @@ class User extends Authenticatable
     public function isModeratorOrAdmin(): bool
     {
         return $this->hasRole(['admin', 'moderator']);
+    }
+
+    public function bookmarks(): HasMany
+    {
+        return $this->hasMany(Bookmark::class);
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(Report::class, 'reporter_id');
+    }
+
+    // Tambah helper
+    public function isBanned(): bool
+    {
+        return $this->is_banned;
     }
 }
