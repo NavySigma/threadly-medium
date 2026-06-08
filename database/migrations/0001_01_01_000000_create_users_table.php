@@ -19,6 +19,8 @@ return new class extends Migration
             $table->string('avatar_url', 500)->nullable();
             $table->text('bio')->nullable();
             $table->integer('reputation_points')->default(0);
+            $table->integer('level')->default(1)->after('reputation_points');
+            $table->boolean('is_banned')->default(false)->after('level');
             $table->timestamps();
         });
 
