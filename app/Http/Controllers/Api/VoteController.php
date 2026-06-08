@@ -7,13 +7,17 @@ use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
 use App\Models\Vote;
+use App\Services\NotificationService;
 use App\Services\PointService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class VoteController extends Controller
 {
-    public function __construct(private PointService $pointService) {}
+    public function __construct(
+        private PointService $pointService,
+        private NotificationService $notificationService
+    ) {}
 
     private function resolveTarget(string $type, string $id): Post|Comment
     {
@@ -98,6 +102,16 @@ class VoteController extends Controller
             'target_type' => $validated['target_type'],
             'vote_type'   => $validated['vote_type'],
         ]);
+
+        if ($validated['vote_type'] === 'upvote') {
+            $this->notificationService->send(
+                recipient    : $owner,
+                actor        : $user,
+                type         : 'upvote',
+                referenceId  : $target->id,
+                referenceType: $validated['target_type'],
+            );
+        }
 
         $this->applyPoints($user, $owner, $validated['vote_type'], $target->id);
         $target->increment('vote_score', $validated['vote_type'] === 'upvote' ? 1 : -1);
