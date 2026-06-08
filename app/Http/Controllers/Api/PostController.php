@@ -121,9 +121,13 @@ class PostController extends Controller
         return response()->json(['message' => 'Post berhasil diupdate.', 'data' => $post]);
     }
 
-    // Tambah method untuk lihat edit history post (public)
-    public function history(Post $post): JsonResponse
+    // Tambah method untuk lihat edit history post (admin only)
+    public function history(Request $request, Post $post): JsonResponse
     {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
         $history = PostEditHistory::where('post_id', $post->id)
             ->with('editor:id,username,avatar_url')
             ->latest('edited_at')

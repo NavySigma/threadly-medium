@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\BookmarkController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\FollowController;
@@ -45,12 +46,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/posts/{post}', [PostController::class, 'update']);
     Route::delete('/posts/{post}', [PostController::class, 'destroy']);
 
+    Route::get('/posts/{post}/history', [PostController::class, 'history']);
+    Route::get('/comments/{comment}/history', [CommentController::class, 'history']);
+
     Route::post('/posts/{post}/comments', [CommentController::class, 'store']);
     Route::put('/comments/{comment}', [CommentController::class, 'update']);
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
     // Accept / unaccept answer
     Route::post('/posts/{post}/comments/{comment}/accept', [CommentController::class, 'accept']);
     Route::delete('/posts/{post}/unaccept', [CommentController::class, 'unaccept']);
+
+    Route::get('/me/bookmarks', [BookmarkController::class, 'index']);
+    Route::post('/bookmarks', [BookmarkController::class, 'store']);
+    Route::delete('/bookmarks/{post}', [BookmarkController::class, 'destroy']);
+    Route::get('/bookmarks/{post}/check', [BookmarkController::class, 'check']);
 
     // Votes
     Route::post('/votes', [VoteController::class, 'vote']);

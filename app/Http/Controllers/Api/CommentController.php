@@ -112,8 +112,12 @@ class CommentController extends Controller
     }
 
     // Tambah method untuk lihat edit history comment (public)
-    public function history(Comment $comment): JsonResponse
+    public function history(Request $request, Comment $comment): JsonResponse
     {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
         $history = CommentEditHistory::where('comment_id', $comment->id)
             ->with('editor:id,username,avatar_url')
             ->latest('edited_at')
